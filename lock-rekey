@@ -1,0 +1,118 @@
+#!/usr/bin/env clisp
+;;; -*- mode: lisp -*-
+;;; Copyright (c) 2012 Björn Edström <be@bjrn.se>
+;;; All rights reserved. See LICENSE for details.
+
+(defun copy-vector (vec)
+  (coerce (copy-list (coerce vec 'list)) 'vector))
+
+(defun sum (list)
+  (reduce '+ list))
+
+(defun nil-to-zero (exp)
+  (if exp
+      exp
+    0))
+
+;; http://rosettacode.org/wiki/Permutations#Common_Lisp
+(defun next-perm (vec cmp)  ; modify vector
+  (declare (type (simple-array * (*)) vec))
+  (macrolet ((el (i) `(aref vec ,i))
+             (cmp (i j) `(funcall cmp (el ,i) (el ,j))))
+    (loop with len = (1- (length vec))
+       for i from (1- len) downto 0
+       when (cmp i (1+ i)) do
+         (loop for k from len downto i
+            when (cmp i k) do
+              (rotatef (el i) (el k))
+              (setf k (1+ len))
+              (loop while (< (incf i) (decf k)) do
+                   (rotatef (el i) (el k)))
+              (return-from next-perm vec)))))
+
+(defun all-perm (list1)
+  "Returns all lexicographic permutations of list1."
+  (loop for a = (coerce (sort list1 #'<) 'vector)
+	then (next-perm a #'<) while a collect
+	(coerce a 'list)))
+
+(defun normalize-list (list)
+  "Piece-wise subtract from each elt of list until min elt is 0.
+Example: (normalize-list (list 3 1 2)) => (list 2 0 1)"
+  (let ((m (reduce 'min list)))
+    (mapcar #'(lambda (r) (- r m)) list)))
+
+(defun invert-list (list)
+  "Example: (invert-list (list 3 0 2)) => (list 0 3 1)"
+  (let ((m (reduce 'max list)))
+    (mapcar #'(lambda (r) (- m r)) list)))
+
+(defun subset-sums-to (nums total)
+  "Finds all subsets of nums that sum to total."
+  (defun inner (nums total acc func)
+    (if (= total 0)
+	(funcall func acc)
+      (loop for n in (remove-duplicates nums) do
+	    (let ((new-total (- total n))
+		  (new-nums (remove n nums :count 1)))
+	      (if (and (>= new-total 0)
+		       (>= n (nil-to-zero (car acc))))
+		  (inner new-nums new-total (cons n acc) func))))))
+  (let ((result (list)))
+    (inner nums total '() #'(lambda (acc) (setf result (cons acc result))))
+    result))
+
+(defun pretty-stacks (stacks)
+  "Pretty-print stacks."
+  (print (mapcar 'reverse (coerce stacks 'list))))
+
+(defun fill-until (stacks pins height)
+  "Given pin stacks and available pins, drop pins in stacks until all
+stacks sum to height."
+  (if pins
+      (loop for i from 0 to (- (length stacks) 1) do
+	    (if (<= (sum (cons (car pins) (elt stacks i))) height)
+		(let ((e (elt stacks i))
+		      (local (copy-vector stacks)))
+		  (setf (elt local i) (cons (car pins) (elt local i)))
+		  (fill-until local (cdr pins) height))))
+    (pretty-stacks stacks)))
+
+(defun solve (bitting key master height)
+  "Enumerate all pin stack combinations for fixed bitting, using all
+key-pins and master-pins given in any configuration up to cylinder
+height."
+  (loop for keys in (all-perm key) do
+	(let ((stacks (map 'list '+ bitting keys)))
+	  (if (<= (reduce 'max stacks) height)
+	      (fill-until (coerce (map 'list 'list keys bitting) 'vector)
+			  master
+			  height)))))
+
+(defun find-master-sum (bitting key master)
+  "Using the fixed bitting and all keys, find the only valid
+configuration of master key pins."
+  (let ((sb (sum bitting))
+	(sk (sum key))
+	(sm (sum master)))
+    (let ((base (- sb (mod (+ sb sk) sb))))
+      (loop for b from base by sb until (< sm b) collect b))))
+
+(defun find-cylinder-height (bitting key master-sum)
+  "Figure out the height of the cylinder given pin and bitting hints."
+  (/ (+ (sum bitting) (sum key) master-sum) (length bitting)))
+
+;; Main program
+(setf *input* (mapcar #'(lambda (s)
+			  (with-input-from-string (stream s)
+						  (read stream))) *args*))
+(setf *bitting* (car *input*))
+(setf *key* (cadr *input*))
+(setf *master* (caddr *input*))
+
+(loop for master-sum in (cons 0 (find-master-sum *bitting* *key* *master*)) do
+      (loop for subsets in (subset-sums-to *master* master-sum) do
+	    (solve *bitting*
+		   *key*
+		   subsets
+		   (find-cylinder-height *bitting* *key* master-sum))))
