@@ -40,15 +40,16 @@ Key pins, driver pins and master key pins are represented by a single
 integer per pin, for it's height. You may have a lock with the five
 key pins (6 6 6 7 7), for example.
 
-My notation for key bitting is not as obvious. What you want to do is
+For the key bitting, the notation is similar to the key code (that's
+written on the key, sometimes obfuscated). What you want to do is
 represent the bitting of the key as a *height*. Specically, the
-*deepest* cut in the key is said to have height 0.
+*deepest* cut in the key has the lowest height.
 
-When you measure your key bitting, you may want to do so the "natural"
-way of measuring the height of the *cut*. Having done that, simply
-normalize then invert the numbers. For example, if the cuts have depth
-(1 1 3 2) then the inverse, which is used by my programs, are
-(2 2 0 1) (normalize to 0 first, then flip).
+If you do not have a key code or know how to decode it, the easist is
+to measure the height of the key pin, that is, the height of the
+*cut*. Having done that, simply normalize then invert the numbers. For
+example, if the cuts have depth (1 1 3 2) then the inverse, which is
+used by my programs, are (2 2 0 1) (normalize to 0 first, then flip).
 
 Author / License
 ----------------
